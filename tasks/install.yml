@@ -1,0 +1,69 @@
+---
+- name: download the latest RainLoop
+  get_url:
+    url: http://repository.rainloop.net/v2/webmail/rainloop-community-latest.zip
+    dest: /tmp/rainloop-community-latest.zip
+    owner: root
+    group: root
+    mode: 0700
+  changed_when: false
+
+- name: create a temp directory to unzip the latest RainLoop into to check the version
+  file:
+    path: /tmp/rainloop
+    state: directory
+    owner: root
+    group: root
+    mode: 0700
+  changed_when: false
+
+- name: unzip the latest RainLoop in a temp dir
+  unarchive:
+    src: /tmp/rainloop-community-latest.zip
+    dest: /tmp/rainloop/
+    copy: no
+    mode: 0774
+  changed_when: false
+  when: rainloop_exists.stat.exists
+
+- name: get latest RainLoop version
+  command: /bin/cat /tmp/rainloop/data/VERSION
+  changed_when: false
+  register: rainloop_latest_version
+  when: rainloop_exists.stat.exists
+
+- name: remove the temp directory for the RainLoop source code
+  file:
+    path: /tmp/rainloop
+    state: absent
+  changed_when: false
+  when: rainloop_exists.stat.exists
+
+- name: get current RainLoop version
+  command: "/bin/cat {{ rainloop_dir }}/data/VERSION"
+  changed_when: false
+  register: rainloop_version
+  when: rainloop_exists.stat.exists
+
+- name: compare the latest RainLoop version and to the one installed
+  set_fact:
+    rainloop_not_latest: "{{ rainloop_latest_version.stdout | version_compare(rainloop_version.stdout, '>') }}"
+  changed_when: false
+  when: rainloop_exists.stat.exists
+
+- name: install the latest RainLoop
+  unarchive:
+    src: /tmp/rainloop-community-latest.zip
+    dest: "{{ rainloop_dir }}"
+    copy: no
+    owner: www-data
+    group: www-data
+    mode: 0770
+  notify: restart apache
+  when: not rainloop_exists.stat.exists or (rainloop_not_latest is defined and rainloop_not_latest)
+
+- name: remove the latest RainLoop zip file
+  file:
+    path: /tmp/rainloop-community-latest.zip
+    state: absent
+  changed_when: false

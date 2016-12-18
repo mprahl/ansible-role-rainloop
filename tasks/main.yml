@@ -1,0 +1,27 @@
+---
+- name: update apt cache
+  apt:
+    update_cache: yes
+
+- name: install unzip
+  apt:
+    name: unzip
+    state: present
+
+- name: create "{{ rainloop_dir }}"
+  file:
+    path: "{{ rainloop_dir }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: 0770
+
+- name: check if RainLoop is installed
+  stat:
+    path: "{{ rainloop_dir }}/data/VERSION"
+  changed_when: false
+  register: rainloop_exists
+
+# Only proceed to the install if RainLoop is not installed or rainloop_ensure_latest is true
+- include: install.yml
+  when: not (rainloop_exists and not rainloop_ensure_latest)
